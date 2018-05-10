@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 test</title>
+        <script src="https://d3js.org/d3.v3.min.js"></script>
+        <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+        <style type="text/css">
+            body {
+                font: 10px sans-serif;
+            }
+
+            .axis path,
+            .axis line {
+                fill: none;
+                stroke: #000;
+                shape-rendering: crispEdges;
+            }
+            .bar {
+                display: inline-block;
+                fill: steelblue;
+            }
+
+            .bar:hover {
+                fill: brown;
+            }
+
+            .x.axis path {
+                display: none;
+            }
+
+            .d3-tip {
+                line-height: 1;
+                font-weight: bold;
+                padding: 12px;
+                background: rgba(0,0,0,0.8);
+                color: #fff;
+                border-radius: 2px;
+            }
+            .d3-tip:after {
+                box-sizing: border-box;
+                display: inline;
+                font-size: 10px;
+                width: 100%;
+                line-height: 1;
+                color: rgba(0, 0, 0, 0.8);
+                content: "\25BC";
+                position: absolute;
+                text-align: center;
+            }
+
+            .d3-tip.n:after {
+                margin: -1px 0 0 0;
+                top: 100%;
+                left: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <svg width="960" height="500"></svg>
+        <script type="text/javascript">
+            var svg = d3.select("svg");
+            var margin = {top: 20, right: 20, bottom: 30, left: 40},
+                width = +svg.attr("width") - margin.left - margin.right,
+                height = +svg.attr("height") - margin.top - margin.bottom;
+            
+            var format_percent = d3.format(".0%");
+
+            var x = d3.scale.ordinal()
+                      .rangeRoundBands([0, width], .1),
+                y = d3.scale.linear()
+                      .rangeRound([height, 0]),
+                axis_x = d3.svg.axis()
+                           .scale(x)
+                           .orient("bottom"),
+                axis_y = d3.svg.axis()
+                           .scale(y)
+                           .orient("left")
+                           .tickFormat(format_percent);
+
+            var tip = d3.tip()
+                .attr('class', 'd3-tip')
+                .offset([-10, 0])
+                .html(function(d) {
+                    return "<strong>Frequency:</strong> <span style='color:red'>"
+                            + d.frequency + "</span>";
+                });
+
+            var g = svg.append("g")
+                       .attr("transform",
+                             "translate(" + margin.left +
+                                        ", " + margin.top + ")");
+
+            svg.call(tip);
+
+            d3.tsv("data/data.tsv", function(d) {
+                d.frequency = +d.frequency;
+                return d;
+            }, function(error, data) {
+                if (error) throw error;
+
+                x.domain(data.map(function(d) {return d.letter; }));
+                y.domain([0, d3.max(data, function(d) { return d.frequency; })]);
+
+                g.append("g")
+                    .attr("class", "x axis")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(axis_x);
+
+                g.append("g")
+                    .attr("class", "y axis")
+                    .call(axis_y)
+                 .append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 6)
+                    .attr("dy", "0.71em")
+                    .attr("text-anchor", "end")
+                    .text("Frequency");
+
+                g.selectAll(".bar")
+                 .data(data)
+                 .enter()
+                 .append("rect")
+                    .attr("class", "bar")
+                    .attr("x", function(d) { return x(d.letter); })
+                    .attr("y", function(d) { return y(d.frequency); })
+                    .attr("width", x.rangeBand())
+                    .attr("height", function(d) { return height - y(d.frequency); })
+                    .on('mouseover', tip.show)
+                    .on('mouseout', tip.hide);
+            });
+                        
+
+        </script>
+    </body>
+</html>
