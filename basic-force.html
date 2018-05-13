@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset='utf-8'>
+        <title>D3.js tutorial - force layout</title>
+        <style>
+            .node {
+                fill: #ccc;
+                stroke: #fff;
+                stroke-width: 2px;
+            }
+            .link {
+                stroke: #777;
+                stroke-width: 2px;
+            }
+        </style>
+        <script src="lib/d3.v3.js"></script>
+    </head>
+    <body>
+        <svg height="480" width="640"></svg>
+        <script>
+            var svg = d3.select("body").select("svg"),
+                margin = { top: 20, right: 20, bottom: 40, left: 20},
+                height = +svg.attr("height") - margin.top - margin.bottom,
+                width = +svg.attr("width") - margin.left - margin.right;
+
+            var nodes = [
+                { x: width/3, y: height/2},
+                { x: .5*width/3, y: .2*height/2}
+            ];
+
+            var links = [
+                { source: 0, target: 1}
+            ];
+
+            var force = d3.layout.force()
+                .size([width, height])
+                .nodes(nodes)
+                .links(links);
+            
+            var linkDistance = getDistance(nodes[0], nodes[1]);
+
+            force // .gravity(0)
+                .nodes(nodes)
+                .links(links)
+                .linkDistance(linkDistance)
+                .start();
+
+            var link = svg.selectAll(".link")
+                .data(links)
+                .enter().append("line")
+                .attr("class", "link")
+
+            var node = svg.selectAll(".node")
+                .data(nodes)
+                .enter().append("circle")
+                .attr("class", "node")
+                .attr("r", width/25)
+
+            force.on("tick", function(e) {
+                node.attr("cx", function(d) { return d.x; })
+                    .attr("cy", function(d) { return  d.y; })
+                    .call(force.drag);
+
+                link.attr("x1", function(d) { return d.source.x; })
+                    .attr("y1", function(d) { return d.source.y; })
+                    .attr("x2", function(d) { return d.target.x; })
+                    .attr("y2", function(d) { return d.target.y; })
+            });
+            
+            function getDistance(point1, point2) {
+                return Math.sqrt(Math.pow(point1.x - point2.x, 2) +
+                    Math.pow(point1.y - point2.y, 2));
+            }
+
+        </script>
+    </body>
+</html>
