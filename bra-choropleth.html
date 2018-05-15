@@ -4,11 +4,25 @@
         <meta charset="utf-8">
         <title>D3.js - Brazil Choropleth</title>
         <script src="lib/d3.v3.js"></script>
-        <script src="http://d3js.org/topojson.v1.min.js"></script>
+        <script src="lib/topojson.js"></script>
+        <script src="lib/d3-queue.v3.min.js"></script>
+        <!-- <script src="https://unpkg.com/topojson@3"></script>  -->
+        <!-- <script src="http://d3js.org/d3-queue.v3.min.js"></script> -->
         <style>
             .path {
                 fill: lightgray;
                 stroke: #000;
+            }
+
+            div.tooltip {
+                position: absolute;
+                text-align: center;
+                color: #222;
+                background: #fff;
+                padding: .5em;
+                border-radius: 2px;
+                box-shadow: 0px 0px 2px 0px #a6a6a6;
+                pointer-events: none;
             }
         </style>
     </head>
@@ -16,10 +30,13 @@
         <script>
             var width = 960,
                 height = 960;
-            
+
             var svg = d3.select("body").append("svg")
                 .attr("width", width)
                 .attr("height", height);
+            var tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0);
 
             var projection = d3.geo.conicEqualArea()
                 .parallels([15.0, -20.0])
@@ -30,13 +47,33 @@
             var path = d3.geo.path()
                 .projection(projection);
 
-            d3.json("data/bra.json", function(error, bra) {
+            d3.queue()
+                .defer(d3.csv, "data/bra-states.csv")
+                .defer(d3.json, "data/bra-states.json")
+                .await(ready);
+
+            function ready(error, names, bra) {
                 if (error) throw error;
 
-                var states = topojson.feature(bra, bra.objects.states2);
+                names.forEach(function(d) {
+                    d.id = d.id;
+                    d.name = d.name;
+                    return d;
+                });
+
+                var statesData = topojson.feature(bra, bra.objects.states);
+
+                // console.log(names);
+                // console.log(bra);
+                // console.log(statesData);
+
+                // joining names for states to the topojson object
+                statesData.features.forEach(function(d) {
+                    d.name = names.filter(function(n) { return d.id == n.id; })[0].name;
+                });
 
                 // Fit projection
-                var b = path.bounds(states),
+                var b = path.bounds(statesData),
                     s = .95 / Math.max((b[1][0] - b[0][0]) / width,
                         (b[1][1] - b[0][1]) / height),
                     t = [(width - s * (b[1][0] + b[0][0])) / 2,
@@ -47,15 +84,26 @@
 
                 path = path.projection(projection);
 
-                // console.log(states);
-
                 // Plot paths
-                svg.append("path")
-                    .datum(states)
+                var statesMap = svg.selectAll("path")
+                    .data(statesData.features)
+                    .enter().append("path")
                     .attr("d", path)
-                    .attr("class", "path");
-
-            });
+                    .attr("class", "path")
+                    .attr("name", function(d) { return d.name; })
+                     .on("mousemove", function(d) {
+                        tooltip.classed("hidden", false)
+                            .style("opacity", .9)
+                            .style("left", (d3.event.pageX + 10) + "px")
+                            .style("top", (d3.event.pageY + 10) + "px")
+                            // specify tooltip html value
+                            .html(d.name);
+                    })
+                    .on("mouseout", function(d) {
+                        tooltip.classed("hidden", true)
+                            .style("opacity", 0);
+                    });
+            };
 
         </script>
     </body>
