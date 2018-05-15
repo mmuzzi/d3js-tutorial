@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+cd ./data/shp
+
+topojson -q 1e4 \
+-o bra-municipalities.json \
+--id-property=CD_GEOCMU \
+CD_GEOCMU.shp
+
+cd ..
+mv shp/bra-municipalities.json  ./bra-municipalities.json

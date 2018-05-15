@@ -10,8 +10,7 @@
         <!-- <script src="http://d3js.org/d3-queue.v3.min.js"></script> -->
         <style>
             .path {
-                fill: lightgray;
-                stroke: #000;
+               stroke-opacity: 0;
             }
 
             div.tooltip {
@@ -28,15 +27,20 @@
     </head>
     <body>
         <script>
+            // TODO: add state boundaries (cf. Mike's UK tutorial)
             var width = 960,
                 height = 960;
 
             var svg = d3.select("body").append("svg")
                 .attr("width", width)
                 .attr("height", height);
+
             var tooltip = d3.select("body").append("div")
                 .attr("class", "tooltip")
                 .style("opacity", 0);
+
+            var color = d3.scale.linear()
+                .range(['blue', 'red']);
 
             var projection = d3.geo.conicEqualArea()
                 .parallels([15.0, -20.0])
@@ -48,56 +52,81 @@
                 .projection(projection);
 
             d3.queue()
-                .defer(d3.csv, "data/bra-states.csv")
-                .defer(d3.json, "data/bra-states.json")
+                .defer(d3.csv, "data/electoral_divide.csv")
+                .defer(d3.json, "data/bra-municipalities.json")
                 .await(ready);
 
-            function ready(error, names, bra) {
+            function ready(error, election, bra) {
                 if (error) throw error;
 
-                names.forEach(function(d) {
-                    d.id = d.id;
-                    d.name = d.name;
+                election.forEach(function(d) {
+                    d.ibge_code = d.ibge_code;
+                    d.ibge_name = d.ibge_name;
+                    d.delta = +d.delta;
                     return d;
                 });
 
-                var statesData = topojson.feature(bra, bra.objects.states);
-
-                // console.log(names);
-                // console.log(bra);
-                // console.log(statesData);
-
-                // joining names for states to the topojson object
-                statesData.features.forEach(function(d) {
-                    d.name = names.filter(function(n) { return d.id == n.id; })[0].name;
-                });
+                var municipalities = topojson.feature(bra, bra.objects.CD_GEOCMU);
 
                 // Fit projection
-                var b = path.bounds(statesData),
+
+                var b = path.bounds(municipalities),
                     s = .95 / Math.max((b[1][0] - b[0][0]) / width,
                         (b[1][1] - b[0][1]) / height),
                     t = [(width - s * (b[1][0] + b[0][0])) / 2,
                         (height - s * (b[1][1] + b[0][1])) / 2];
-                
+
                 projection.scale(s)
                     .translate(t);
 
                 path = path.projection(projection);
+ 
+                municipalities = municipalities.features;
+
+                //  municipalities.features.forEach(function(d) {
+                //     console.log(election.filter(function(n) {
+                //         return d.id == n.ibge_code;
+                //     })[0]);
+                //     d.delta = +election.filter(function(n) {
+                //         return d.id == n.ibge_code; })[0];
+                //     console.log(d.delta);
+                // });
+                for (var i = 0; i < municipalities.length; i++) {
+                    for (var j = 0; j < election.length; j++) {
+                        if (municipalities[i].id == election[j].ibge_code) {
+                            municipalities[i].properties.name = 
+                                election[j].ibge_name;
+                            municipalities[i].properties.delta =
+                                election[j].delta;
+                        }
+                    }
+                }
+               
+                var delta = municipalities
+                    .map(function(d) { return d.properties.delta; });
+                    // .sort(function(a,b) { return (a-b); });
+
+                color.domain(d3.extent(delta));
 
                 // Plot paths
-                var statesMap = svg.selectAll("path")
-                    .data(statesData.features)
+                var electionMap = svg.selectAll("path")
+                    .data(municipalities)
                     .enter().append("path")
+                    .style("fill", function(d) {
+                        return color(d.properties.delta); 
+                    })
                     .attr("d", path)
                     .attr("class", "path")
-                    .attr("name", function(d) { return d.name; })
+                    .attr("name", function(d) { return d.properties.name; })
                      .on("mousemove", function(d) {
                         tooltip.classed("hidden", false)
                             .style("opacity", .9)
                             .style("left", (d3.event.pageX + 10) + "px")
                             .style("top", (d3.event.pageY + 10) + "px")
                             // specify tooltip html value
-                            .html(d.name);
+                            .html("<strong>" + d.properties.name +
+                                "</strong>:<br>" +
+                                Math.round(d.properties.delta * 1000)/10 + "%");
                     })
                     .on("mouseout", function(d) {
                         tooltip.classed("hidden", true)
