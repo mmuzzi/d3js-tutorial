@@ -31,9 +31,18 @@
             var width = 960,
                 height = 960;
 
+            var zoom = d3.behavior.zoom()
+                .translate([0, 0])
+                .scale(1)
+                .scaleExtent([1, 10])
+                .on("zoom", zoomed);
+
             var svg = d3.select("body").append("svg")
                 .attr("width", width)
-                .attr("height", height);
+                .attr("height", height)
+                .call(zoom);
+
+            var features = svg.append("g");
 
             var tooltip = d3.select("body").append("div")
                 .attr("class", "tooltip")
@@ -52,6 +61,8 @@
                 .projection(projection);
 
             d3.queue()
+                // TODO: clean data, use utf-8 enconding when saving from R
+                //       and get rid of columns not used
                 .defer(d3.csv, "data/electoral_divide.csv")
                 .defer(d3.json, "data/bra-municipalities.json")
                 .await(ready);
@@ -69,7 +80,6 @@
                 var municipalities = topojson.feature(bra, bra.objects.CD_GEOCMU);
 
                 // Fit projection
-
                 var b = path.bounds(municipalities),
                     s = .95 / Math.max((b[1][0] - b[0][0]) / width,
                         (b[1][1] - b[0][1]) / height),
@@ -83,6 +93,7 @@
  
                 municipalities = municipalities.features;
 
+                // not sure why forEach doesn't work, maybe because of assync?
                 //  municipalities.features.forEach(function(d) {
                 //     console.log(election.filter(function(n) {
                 //         return d.id == n.ibge_code;
@@ -109,7 +120,7 @@
                 color.domain(d3.extent(delta));
 
                 // Plot paths
-                var electionMap = svg.selectAll("path")
+                features.selectAll("path")
                     .data(municipalities)
                     .enter().append("path")
                     .style("fill", function(d) {
@@ -126,13 +137,23 @@
                             // specify tooltip html value
                             .html("<strong>" + d.properties.name +
                                 "</strong>:<br>" +
-                                Math.round(d.properties.delta * 1000)/10 + "%");
+                                formatPercent(d.properties.delta, 1));
                     })
                     .on("mouseout", function(d) {
                         tooltip.classed("hidden", true)
                             .style("opacity", 0);
                     });
-            };
+            }
+
+            function formatPercent(x, digits=0) {
+                return Math.round(x * Math.pow(10, (2+digits))) 
+                    / Math.pow(10, digits) + "%";
+            }
+
+            function zoomed() {
+                features.attr("transform", "translate(" + d3.event.translate +
+                    ")scale(" + d3.event.scale + ")");
+            }
 
         </script>
     </body>
